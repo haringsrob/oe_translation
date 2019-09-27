@@ -307,9 +307,6 @@ class PoetryTranslator extends TranslatorPluginBase implements AlterableTranslat
       return;
     }
 
-    $entity = $build['#entity'];
-    $destination = $entity->toUrl('drupal:content-translation-overview');
-    // Add a link to delete any unprocessed job for this entity.
     $languages = $this->languageManager->getLanguages();
     $unprocessed_languages = $this->getUnprocessedJobsByLanguage($entity);
     $accepted_languages = $this->getAcceptedJobsByLanguage($entity);
@@ -322,6 +319,7 @@ class PoetryTranslator extends TranslatorPluginBase implements AlterableTranslat
       $build['actions']['add_to_cart']['#access'] = FALSE;
     }
 
+    $destination = $entity->toUrl('drupal:content-translation-overview');
     foreach ($languages as $langcode => $language) {
       // Add links for unprocessed jobs to delete the delete.
       if (array_key_exists($langcode, $unprocessed_languages)) {
