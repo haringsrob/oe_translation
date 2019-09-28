@@ -363,49 +363,19 @@ class PoetryTranslator extends TranslatorPluginBase implements AlterableTranslat
       }
     }
 
-    $action = $this->getRequestAction($submitted_languages, $accepted_languages);
-    switch ($action) {
-      case "request":
+    if (isset($build['actions']['request'])) {
+      /** @var \Drupal\tmgmt\JobInterface[] $current_jobs */
+      $current_jobs = $this->jobQueue->getAllJobs();
+      if (empty($current_jobs)) {
+        // If there are no jobs in the queue, it means the user can select
+        // the languages it wants to translate.
         $build['actions']['request']['#value'] = $this->t('Request DGT translation for the selected languages');
-        break;
-      case "add":
-        $build['actions']['request']['#value'] = $this->t('Add the selected languages to DGT translation');
-        break;
-      case "continue":
+      }
+      else {
         $current_target_languages = $this->jobQueue->getTargetLanguages();
         $language_list = implode(', ', $current_target_languages);
         $build['actions']['request']['#value'] = $this->t('Finish translation request to DGT for @language_list', ['@language_list' => $language_list]);
-        break;
-      default:
-        unset($build['actions']);
-    }
-    $fim = 1;
-  }
-
-  /**
-   * @param array $submitted_languages
-   * @param array $accepted_languages
-   *
-   * @return string
-   */
-  public function getRequestAction(array $submitted_languages, array $accepted_languages) {
-    /** @var \Drupal\tmgmt\JobInterface[] $queued_jobs */
-    $queued_jobs = $this->jobQueue->getAllJobs();
-    if (!empty($queued_jobs)) {
-      // Continue processing existing jobs in the queue.
-      return 'continue';
-    }
-    if (!empty($submitted_languages)) {
-      // No action can be taken until a submitted request is accepted by DGT.
-      return '';
-    }
-    if (empty($accepted_languages)) {
-      // Request translation.
-      return 'request';
-    }
-    else {
-      // Add languages to existing request
-      return 'add_languages';
+      }
     }
   }
 
