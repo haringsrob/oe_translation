@@ -192,7 +192,7 @@ abstract class PoetryCheckoutFormBase extends FormBase {
   public function getPageTitle(): TranslatableMarkup {
     $target_languages = $this->queue->getTargetLanguages();
     $entity = $this->queue->getEntity();
-    $target_languages = count($target_languages) > 1 ? implode(', ', $target_languages) : array_shift($target_languages);
+    $target_languages = implode(', ', $target_languages);
     return $this->t('Send request to DG Translation for <em>@entity</em> in <em>@target_languages</em>', ['@entity' => $entity->label(), '@target_languages' => $target_languages]);
   }
 
