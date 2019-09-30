@@ -7,18 +7,17 @@ namespace Drupal\oe_translation_poetry\Form;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Url;
-use Drupal\oe_translation_poetry\PoetryTranslatorUI;
 
 /**
  * Form for requesting new translations.
  */
-class NewTranslationRequestForm extends PoetryCheckoutFormBase {
+class AddLanguagesRequestForm extends PoetryCheckoutFormBase {
 
   /**
    * {@inheritdoc}
    */
   public function getFormId() {
-    return 'oe_translation_poetry_new_translation_request';
+    return 'oe_translation_poetry_add_languages_request';
   }
 
   /**
@@ -31,15 +30,13 @@ class NewTranslationRequestForm extends PoetryCheckoutFormBase {
     $target_languages = $this->queue->getTargetLanguages();
     $entity = $this->queue->getEntity();
     $target_languages = implode(', ', $target_languages);
-    return $this->t('Send request to DG Translation for <em>@entity</em> in <em>@target_languages</em>', ['@entity' => $entity->label(), '@target_languages' => $target_languages]);
+    return $this->t('Add languages to previous request to DG Translation for <em>@entity</em>: <em>@target_languages</em>', ['@entity' => $entity->label(), '@target_languages' => $target_languages]);
   }
 
   /**
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    $translator_settings = $this->poetry->getTranslatorSettings();
-
     $form['#tree'] = TRUE;
 
     $form['details'] = [
@@ -52,42 +49,6 @@ class NewTranslationRequestForm extends PoetryCheckoutFormBase {
       '#type' => 'date',
       '#title' => $this->t('Requested delivery date'),
       '#required' => TRUE,
-    ];
-
-    $default_contact = $translator_settings['contact'] ?? [];
-    $form['details']['contact'] = [
-      '#type' => 'fieldset',
-      '#title' => $this->t('Contact information'),
-    ];
-
-    foreach (PoetryTranslatorUI::getContactFieldNames('contact') as $name => $label) {
-      $form['details']['contact'][$name] = [
-        '#type' => 'textfield',
-        '#title' => $label,
-        '#default_value' => $default_contact[$name] ?? '',
-        '#required' => TRUE,
-      ];
-    }
-
-    $default_organisation = $translator_settings['organisation'] ?? [];
-    $form['details']['organisation'] = [
-      '#type' => 'fieldset',
-      '#title' => $this->t('Organisation information'),
-    ];
-
-    foreach (PoetryTranslatorUI::getContactFieldNames('organisation') as $name => $label) {
-      $form['details']['organisation'][$name] = [
-        '#type' => 'textfield',
-        '#title' => $label,
-        '#default_value' => $default_organisation[$name] ?? '',
-        '#required' => TRUE,
-      ];
-    }
-
-    $form['details']['comment'] = [
-      '#type' => 'textarea',
-      '#title' => $this->t('Comment'),
-      '#description' => $this->t('Optional remark about the translation request.'),
     ];
 
     $form['actions'] = ['#type' => 'actions'];
@@ -121,53 +82,14 @@ class NewTranslationRequestForm extends PoetryCheckoutFormBase {
     $translator_settings = $this->poetry->getTranslatorSettings();
     $jobs = $this->queue->getAllJobs();
     $entity = $this->queue->getEntity();
-    $identifier = $this->poetry->getIdentifierForContent($entity);
-    $identifier->setProduct($this->requestType);
+    $identifier = $this->poetry->getLastIdentifierForContent($entity);
 
     $date = new \DateTime($form_state->getValue('details')['date']);
     $formatted_date = $date->format('d/m/Y');
 
     /** @var \EC\Poetry\Messages\Requests\CreateTranslationRequest $message */
-    $message = $this->poetry->get('request.create_translation_request');
+    $message = $this->poetry->get('request.add_languages_request');
     $message->setIdentifier($identifier);
-
-    // Build the details.
-    $details = $message->withDetails();
-    $details->setDelay($formatted_date);
-
-    if ($form_state->getValue('details')['comment']) {
-      $details->setRemark($form_state->getValue('details')['comment']);
-    }
-
-    // We use the formatted identifier as the user reference.
-    $details->setClientId($identifier->getFormattedIdentifier());
-    $title = $this->createRequestTitle();
-    $details->setTitle($title);
-    $details->setApplicationId($translator_settings['application_reference']);
-    $details->setReferenceFilesRemark($entity->toUrl()->setAbsolute()->toString());
-    $details
-      ->setProcedure('NEANT')
-      ->setDestination('PUBLIC')
-      ->setType('INTER');
-
-    // Add the organisation information.
-    $organisation_information = [
-      'setResponsible' => 'responsible',
-      'setAuthor' => 'author',
-      'setRequester' => 'requester',
-    ];
-    foreach ($organisation_information as $method => $name) {
-      $details->$method($form_state->getValue('details')['organisation'][$name]);
-    }
-
-    $message->setDetails($details);
-
-    // Build the contact information.
-    foreach (PoetryTranslatorUI::getContactFieldNames('contact') as $name => $label) {
-      $message->withContact()
-        ->setType($name)
-        ->setNickname($form_state->getValue('details')['contact'][$name]);
-    }
 
     // Build the return endpoint information.
     $settings = $this->poetry->getSettings();
@@ -185,17 +107,6 @@ class NewTranslationRequestForm extends PoetryCheckoutFormBase {
     $return->setAction($this->getRequestOperation());
     $message->setReturnAddress($return);
 
-    $source = $message->withSource();
-    $source->setFormat('HTML');
-    $source->setName('content.html');
-    $formatted_content = $this->contentFormatter->export(reset($jobs));
-    $source->setFile(base64_encode($formatted_content->__toString()));
-    $source->setLegiswriteFormat('No');
-    $source->withSourceLanguage()
-      ->setCode(strtoupper($entity->language()->getId()))
-      ->setPages(1);
-    $message->setSource($source);
-
     foreach ($jobs as $job) {
       $message->withTarget()
         ->setLanguage(strtoupper($job->getTargetLangcode()))
@@ -209,12 +120,6 @@ class NewTranslationRequestForm extends PoetryCheckoutFormBase {
       /** @var \EC\Poetry\Messages\Responses\ResponseInterface $response */
       $response = $client->send($message);
       $this->handlePoetryResponse($response, $form_state);
-
-      // If we request a new number by setting a sequence, update the global
-      // identifier number with the new number that came for future requests.
-      if ($identifier->getSequence()) {
-        $this->poetry->setGlobalIdentifierNumber($response->getIdentifier()->getNumber());
-      }
 
       $this->redirectBack($form_state);
       $this->queue->reset();

@@ -305,11 +305,11 @@ class Poetry {
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The entity.
-   *
+   *protected
    * @return \EC\Poetry\Messages\Components\Identifier
    *   The identifier.
    */
-  protected function getLastIdentifierForContent(ContentEntityInterface $entity): ?Identifier {
+  public function getLastIdentifierForContent(ContentEntityInterface $entity): ?Identifier {
     $query = $this->database->select('tmgmt_job', 'job');
     $query->join('tmgmt_job_item', 'job_item', 'job.tjid = job_item.tjid');
     $query->fields('job');

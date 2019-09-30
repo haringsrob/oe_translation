@@ -224,8 +224,20 @@ class PoetryTranslator extends TranslatorPluginBase implements AlterableTranslat
         '_custom_access' => 'oe_translation_poetry.job_queue::access',
       ]
     );
+    $collection->add('oe_translation_poetry.job_queue_checkout_new', $route);
 
-    $collection->add('oe_translation_poetry.job_queue_checkout', $route);
+    $route = new Route(
+      '/admin/content/dgt/add-languages-request',
+      [
+        '_form' => '\Drupal\oe_translation_poetry\Form\AddLanguagesRequestForm',
+        '_title_callback' => '\Drupal\oe_translation_poetry\Form\AddLanguagesRequestForm::getPageTitle',
+      ],
+      [
+        '_permission' => 'translate any entity',
+        '_custom_access' => 'oe_translation_poetry.job_queue::access',
+      ]
+    );
+    $collection->add('oe_translation_poetry.job_queue_checkout_add_languages', $route);
 
     $route = new Route(
       '/poetry/notifications',
@@ -307,16 +319,38 @@ class PoetryTranslator extends TranslatorPluginBase implements AlterableTranslat
       return;
     }
 
+    // Build the TMGMT translation request form.
+    $build = $this->formBuilder->getForm('Drupal\tmgmt_content\Form\ContentTranslateForm', $build);
+    if (isset($build['actions']['add_to_cart'])) {
+      $build['actions']['add_to_cart']['#access'] = FALSE;
+    }
+
     $languages = $this->languageManager->getLanguages();
     $unprocessed_languages = $this->getUnprocessedJobsByLanguage($entity);
     $accepted_languages = $this->getAcceptedJobsByLanguage($entity);
     $submitted_languages = $this->getSubmittedJobsByLanguage($entity);
     $translated_languages = $this->getTranslatedJobsByLanguage($entity);
 
-    // Build the TMGMT translation request form.
-    $build = $this->formBuilder->getForm('Drupal\tmgmt_content\Form\ContentTranslateForm', $build);
-    if (isset($build['actions']['add_to_cart'])) {
-      $build['actions']['add_to_cart']['#access'] = FALSE;
+    /** @var \Drupal\tmgmt\JobInterface[] $current_jobs */
+    $current_jobs = $this->jobQueue->getAllJobs();
+    if (empty($current_jobs)) {
+      if (empty($accepted_languages) && empty($submitted_languages)) {
+        // New translation request.
+        $build['actions']['request']['#value'] = $this->t('Request DGT translation for the selected languages');
+      }
+      else if (!empty($submitted_languages)) {
+        // No action can be taken until a submitted request is accepted by DGT.
+        unset($build['actions']);
+      }
+      else {
+        // Add languages to existing request.
+        $build['actions']['request']['#value'] = $this->t('Add the selected languages to DGT translation');
+      }
+    }
+    else {
+      $current_target_languages = $this->jobQueue->getTargetLanguages();
+      $language_list = implode(', ', $current_target_languages);
+      $build['actions']['request']['#value'] = $this->t('Finish translation request to DGT for @language_list', ['@language_list' => $language_list]);
     }
 
     $destination = $entity->toUrl('drupal:content-translation-overview');
@@ -360,21 +394,6 @@ class PoetryTranslator extends TranslatorPluginBase implements AlterableTranslat
             'title' => $this->t('Review translation'),
           ];
         }
-      }
-    }
-
-    if (isset($build['actions']['request'])) {
-      /** @var \Drupal\tmgmt\JobInterface[] $current_jobs */
-      $current_jobs = $this->jobQueue->getAllJobs();
-      if (empty($current_jobs)) {
-        // If there are no jobs in the queue, it means the user can select
-        // the languages it wants to translate.
-        $build['actions']['request']['#value'] = $this->t('Request DGT translation for the selected languages');
-      }
-      else {
-        $current_target_languages = $this->jobQueue->getTargetLanguages();
-        $language_list = implode(', ', $current_target_languages);
-        $build['actions']['request']['#value'] = $this->t('Finish translation request to DGT for @language_list', ['@language_list' => $language_list]);
       }
     }
   }
@@ -421,7 +440,12 @@ class PoetryTranslator extends TranslatorPluginBase implements AlterableTranslat
       $this->request->query->remove('destination');
     }
 
-    $redirect = Url::fromRoute('oe_translation_poetry.job_queue_checkout');
+    $route = 'oe_translation_poetry.job_queue_checkout_new';
+    $accepted_languages = $this->getAcceptedJobsByLanguage($entity);
+    if (!empty($accepted_languages)) {
+      $route = 'oe_translation_poetry.job_queue_checkout_add_languages';
+    }
+    $redirect = Url::fromRoute($route);
 
     // Redirect to the checkout form.
     $form_state->setRedirectUrl($redirect);
