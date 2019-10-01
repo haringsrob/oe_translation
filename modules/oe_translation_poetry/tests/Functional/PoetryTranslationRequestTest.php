@@ -66,6 +66,10 @@ class PoetryTranslationRequestTest extends PoetryTranslationTestBase {
     ];
     $this->assertJobsPoetryRequestIdValues($jobs, $expected_poetry_request_id);
 
+    // Abort jobs to have the request button displayed again.
+    $jobs['bg']->aborted();
+    $jobs['cs']->aborted();
+
     // Make a new request for the same node to check that the version increases.
     $this->createInitialTranslationJobs($node, ['de' => 'German', 'fr' => 'French']);
     $jobs = [];
@@ -105,6 +109,10 @@ class PoetryTranslationRequestTest extends PoetryTranslationTestBase {
       'title' => 'My second node',
     ]);
     $node_two->save();
+
+    // Abort jobs to have the request button displayed again.
+    $jobs['de']->aborted();
+    $jobs['fr']->aborted();
 
     $this->createInitialTranslationJobs($node_two, ['bg' => 'Bulgarian', 'cs' => 'Czech']);
     // Check that two jobs have been created for the two languages and that
@@ -156,6 +164,10 @@ class PoetryTranslationRequestTest extends PoetryTranslationTestBase {
       'title' => 'My third node',
     ]);
     $node_three->save();
+
+    // Abort jobs to have the request button displayed again.
+    $jobs['bg']->aborted();
+    $jobs['cs']->aborted();
 
     $this->createInitialTranslationJobs($node_three, ['bg' => 'Bulgarian', 'cs' => 'Czech']);
     // Check that two jobs have been created for the two languages and that

@@ -338,7 +338,7 @@ class PoetryTranslator extends TranslatorPluginBase implements AlterableTranslat
         // New translation request.
         $build['actions']['request']['#value'] = $this->t('Request DGT translation for the selected languages');
       }
-      else if (!empty($submitted_languages)) {
+      elseif (!empty($submitted_languages)) {
         // No action can be taken until a submitted request is accepted by DGT.
         unset($build['actions']);
       }
