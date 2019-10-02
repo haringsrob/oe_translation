@@ -40,19 +40,7 @@ class NewTranslationRequestForm extends PoetryCheckoutFormBase {
   public function buildForm(array $form, FormStateInterface $form_state) {
     $translator_settings = $this->poetry->getTranslatorSettings();
 
-    $form['#tree'] = TRUE;
-
-    $form['details'] = [
-      '#type' => 'details',
-      '#title' => $this->t('Request details'),
-      '#open' => TRUE,
-    ];
-
-    $form['details']['date'] = [
-      '#type' => 'date',
-      '#title' => $this->t('Requested delivery date'),
-      '#required' => TRUE,
-    ];
+    $form = parent::buildForm($form, $form_state);
 
     $default_contact = $translator_settings['contact'] ?? [];
     $form['details']['contact'] = [
@@ -88,22 +76,6 @@ class NewTranslationRequestForm extends PoetryCheckoutFormBase {
       '#type' => 'textarea',
       '#title' => $this->t('Comment'),
       '#description' => $this->t('Optional remark about the translation request.'),
-    ];
-
-    $form['actions'] = ['#type' => 'actions'];
-    $form['actions']['submit'] = [
-      '#type' => 'submit',
-      '#value' => $this->t('Send request'),
-      '#button_type' => 'primary',
-      '#submit' => ['::submitRequest'],
-    ];
-
-    $form['actions']['cancel'] = [
-      '#type' => 'submit',
-      '#value' => $this->t('Cancel and delete job'),
-      '#button_type' => 'secondary',
-      '#submit' => ['::cancelRequest'],
-      '#limit_validation_errors' => [],
     ];
 
     return $form;
