@@ -170,7 +170,7 @@ class NewTranslationRequestForm extends PoetryCheckoutFormBase {
 
     foreach ($jobs as $job) {
       $message->withTarget()
-        ->setLanguage(strtoupper($job->getTargetLangcode()))
+        ->setLanguage(strtoupper($job->getRemoteTargetLanguage()))
         ->setFormat('HTML')
         ->setAction($this->getRequestOperation())
         ->setDelay($formatted_date);
